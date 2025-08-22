@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CSV Data Dashboard with t-SNE</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+  <style>
+    body { overflow: hidden; }
+    #sidebar { height: 100vh; overflow-y: auto; border-left: 1px solid #ddd; background-color: #f8f9fa; padding: 15px; }
+    #main { height: 100vh; padding: 15px; }
+    #plot { width: 100%; height: 100%; }
+    #loading { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container-fluid">
+    <div class="row">
+      <!-- Main Dashboard -->
+      <div id="main" class="col-9">
+        <div id="plot"></div>
+      </div>
+
+      <!-- Sidebar -->
+      <div id="sidebar" class="col-3">
+        <h5>Upload CSV (must include 'name')</h5>
+        <input type="file" id="csvFile" accept=".csv" class="form-control mb-3">
+
+        <!-- Loading Spinner -->
+        <div id="loading" class="text-center my-3">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Processing...</span>
+          </div>
+          <p class="mt-2">Running t-SNE...</p>
+        </div>
+
+        <h5>Point Details</h5>
+        <div id="pointDetails" class="border rounded p-2 bg-white"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById("csvFile");
+    const plotDiv = document.getElementById("plot");
+    const pointDetails = document.getElementById("pointDetails");
+    const loading = document.getElementById("loading");
+
+    fileInput.addEventListener("change", handleFileUpload);
+
+    function handleFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      // Show spinner
+      loading.style.display = "block";
+      pointDetails.innerHTML = "";
+
+      fetch("/upload", {
+        method: "POST",
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => {
+        loading.style.display = "none"; // Hide spinner
+        if (data.error) {
+          alert(data.error);
+          return;
+        }
+        plotData(data);
+      })
+      .catch(err => {
+        loading.style.display = "none"; // Hide spinner on error too
+        console.error("Upload error:", err);
+      });
+    }
+
+    function plotData(data) {
+      const labels = data.labels;
+      const uniqueLabels = [...new Set(labels)];
+
+      // Use Plotly's Set2 palette (8 distinct colors)
+      const colors = Plotly.d3.schemeSet2 || [
+        "#66c2a5","#fc8d62","#8da0cb","#e78ac3",
+        "#a6d854","#ffd92f","#e5c494","#b3b3b3"
+      ];
+
+      const traces = uniqueLabels.map((lbl, i) => {
+        const indices = labels.map((l, idx) => l === lbl ? idx : -1).filter(idx => idx !== -1);
+
+        return {
+          x: indices.map(idx => data.tsne_x[idx]),
+          y: indices.map(idx => data.tsne_y[idx]),
+          mode: "markers",
+          type: "scatter",
+          name: lbl,
+          text: indices.map(idx => data.names[idx]),
+          hovertemplate:
+            "<b>%{text}</b><br>" +
+            "Label: " + lbl + "<br>" +
+            "t-SNE X: %{x}<br>" +
+            "t-SNE Y: %{y}<extra></extra>",
+          marker: { size: 10, color: colors[i % colors.length] },
+
+          // Attach all metadata here
+          customdata: indices.map(idx => {
+            const featureValues = Object.fromEntries(
+              Object.entries(data.features).map(([f, vals]) => [f, vals[idx]])
+            );
+            return {
+              name: data.names[idx],
+              label: data.labels[idx],
+              tsne_x: data.tsne_x[idx],
+              tsne_y: data.tsne_y[idx],
+              ...featureValues
+            };
+          })
+        };
+      });
+
+      const layout = {
+        margin: { t: 20 },
+        xaxis: { title: "t-SNE X" },
+        yaxis: { title: "t-SNE Y" },
+        hovermode: "closest",
+        hoverdistance: 20,
+        dragmode: "pan"  // enable click-drag panning
+      };
+
+      Plotly.newPlot(plotDiv, traces, layout, {scrollZoom: true});
+
+      plotDiv.on("plotly_click", function(event) {
+        const point = event.points[0].customdata;
+
+        let html = `<p><strong>Name:</strong> ${point.name}</p>`;
+        html += `<p><strong>Label:</strong> ${point.label}</p>`;
+        for (const [feature, value] of Object.entries(point)) {
+          if (["name","label","tsne_x","tsne_y"].includes(feature)) continue;
+          html += `<p><strong>${feature}:</strong> ${value}</p>`;
+        }
+        html += `<p><strong>t-SNE X:</strong> ${point.tsne_x.toFixed(3)}</p>`;
+        html += `<p><strong>t-SNE Y:</strong> ${point.tsne_y.toFixed(3)}</p>`;
+
+        pointDetails.innerHTML = html;
+      });
+    }
+  </script>
+</body>
+</html>
