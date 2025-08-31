@@ -55,6 +55,9 @@ function handleRun() {
 function plotData(data) {
     document.getElementById("dataPointsSection").classList.remove("section-locked");
     document.getElementById("clustersSection").classList.remove("section-locked");
+    document.getElementById("placeholder").classList.add("d-none");
+    document.getElementById("plot").classList.remove("d-none");
+    
     featuresBtn.disabled = false;
 
     const clusters = data.clusters;
