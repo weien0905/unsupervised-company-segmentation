@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, redirect
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
@@ -180,6 +180,14 @@ def feature_importance():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+    
+@app.route('/dataset')
+def redirect_dataset():
+    return redirect("https://365umedumy-my.sharepoint.com/:f:/g/personal/23086179_siswa365_um_edu_my/EgOGYt70w8BCl7Vz_mZNvgABQNa9q9Xywvdp02mWT2o0Jg?e=tZl3zY", code=302)
+
+@app.route('/github')
+def redirect_github():
+    return redirect("https://github.com/weien0905/unsupervised-company-segmentation", code=302)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run()
