@@ -156,7 +156,7 @@ def upload():
     return jsonify({
         "names": df[id_column].tolist(),
         "clusters": df["cluster"].tolist(),
-        "features": features.to_dict(orient="list"),
+        "features": df.drop(columns=[id_column, "cluster", "tsne_x", "tsne_y"]).to_dict(orient="list"),
         "tsne_x": df["tsne_x"].tolist(),
         "tsne_y": df["tsne_y"].tolist()
     })
