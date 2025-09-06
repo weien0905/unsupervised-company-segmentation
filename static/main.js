@@ -77,81 +77,85 @@ function plotData(data) {
     btn.style.backgroundColor = colors[cl % colors.length];
     btn.style.color = "white";
     btn.textContent = `Cluster ${cl}`;
-    btn.onclick = () => showClusterMean(cl);
+    btn.onclick = () => showClusterMedian(cl);
     clusterButtonsDiv.appendChild(btn);
     });
 
-    function showClusterMean(clusterId) {
-    clusterDetails.style.display = "block";
+    function showClusterMedian(clusterId) {
+        clusterDetails.style.display = "block";
 
-    if (!document.getElementById("barsContainerCluster")) {
-        clusterDetails.innerHTML = `
-        <h3 class="mb-2">Cluster <span id="clusterId"></span> Mean</h3>
-        <div id="barsContainerCluster"></div>
-        `;
-    }
+        if (!document.getElementById("barsContainerCluster")) {
+            clusterDetails.innerHTML = `
+            <h3 class="mb-2">Cluster <span id="clusterId"></span> Median</h3>
+            <div id="barsContainerCluster"></div>
+            `;
+        }
 
-    document.getElementById("clusterId").textContent = clusterId;
+        document.getElementById("clusterId").textContent = clusterId;
 
-    const idxs = clusters.map((c, i) => c === clusterId ? i : -1).filter(i => i !== -1);
-    if (idxs.length === 0) {
-        clusterDetails.innerHTML += "<p>No data for this cluster.</p>";
-        return;
-    }
+        const idxs = clusters.map((c, i) => c === clusterId ? i : -1).filter(i => i !== -1);
+        if (idxs.length === 0) {
+            clusterDetails.innerHTML += "<p>No data for this cluster.</p>";
+            return;
+        }
 
-    const means = {};
-    for (const [feature, values] of Object.entries(data.features)) {
-        const subset = idxs.map(i => values[i]);
-        const meanVal = subset.reduce((a, b) => a + b, 0) / subset.length;
-        means[feature] = meanVal;
-    }
+        const medians = {};
+        for (const [feature, values] of Object.entries(data.features)) {
+            const subset = idxs.map(i => values[i]);
+            const sorted = [...subset].sort((a, b) => a - b);
+            const middle = Math.floor(sorted.length / 2);
+            const medianVal = sorted.length % 2 === 0
+                ? (sorted[middle - 1] + sorted[middle]) / 2
+                : sorted[middle];
+            medians[feature] = medianVal;
+        }
 
-    const barsContainer = document.getElementById("barsContainerCluster");
+        const barsContainer = document.getElementById("barsContainerCluster");
 
-    for (const [feature, meanVal] of Object.entries(means)) {
-        const allVals = data.features[feature];
-        const sorted = [...allVals].sort((a, b) => a - b);
-        const rank = sorted.indexOf(
-        sorted.reduce((prev, curr) =>
-            Math.abs(curr - meanVal) < Math.abs(prev - meanVal) ? curr : prev
-        )
-        ) / (sorted.length - 1);
-        const percentile = Math.round(rank * 100);
+        for (const [feature, medianVal] of Object.entries(medians)) {
+            const allVals = data.features[feature];
+            const sorted = [...allVals].sort((a, b) => a - b);
+            const rank = sorted.indexOf(
+                sorted.reduce((prev, curr) =>
+                    Math.abs(curr - medianVal) < Math.abs(prev - medianVal) ? curr : prev
+                )
+            ) / (sorted.length - 1);
+            const percentile = Math.round(rank * 100);
 
-        let barWrapper = barsContainer.querySelector(`[data-feature="${feature}"]`);
-        if (!barWrapper) {
-        barWrapper = document.createElement("div");
-        barWrapper.className = "mb-2";
-        barWrapper.setAttribute("data-feature", feature);
-        barWrapper.innerHTML = `
-            <div class="d-flex justify-content-between">
-            <span><strong>${feature}</strong>: <span class="val">${meanVal.toFixed(3)}</span></span>
-            <span class="pct">${percentile}th %</span>
-            </div>
-            <div class="progress" style="height: 12px;">
-            <div class="progress-bar cluster-bg" role="progressbar" 
-                style="width: 0%; background-color: ${colors[clusterId]}" aria-valuenow="${percentile}" aria-valuemin="0" aria-valuemax="100"></div>
-            </div>
-        `;
-        barsContainer.appendChild(barWrapper);
-        } 
+            let barWrapper = barsContainer.querySelector(`[data-feature="${feature}"]`);
+            if (!barWrapper) {
+                barWrapper = document.createElement("div");
+                barWrapper.className = "mb-2";
+                barWrapper.setAttribute("data-feature", feature);
+                barWrapper.innerHTML = `
+                    <div class="d-flex justify-content-between">
+                        <span><strong>${feature}</strong>: <span class="val">${medianVal.toFixed(3)}</span></span>
+                        <span class="pct">${percentile}th %</span>
+                    </div>
+                    <div class="progress" style="height: 12px;">
+                        <div class="progress-bar cluster-bg" role="progressbar" 
+                            style="width: 0%; background-color: ${colors[clusterId]}" aria-valuenow="${percentile}" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                `;
+                barsContainer.appendChild(barWrapper);
+            }
 
-        barWrapper.querySelector(".val").textContent = meanVal.toFixed(3);
-        barWrapper.querySelector(".pct").textContent = `${percentile}th %`;
-        barWrapper.querySelector(".cluster-bg").style.backgroundColor = colors[clusterId];
+            barWrapper.querySelector(".val").textContent = medianVal.toFixed(3);
+            barWrapper.querySelector(".pct").textContent = `${percentile}th %`;
+            barWrapper.querySelector(".cluster-bg").style.backgroundColor = colors[clusterId];
 
-        const bar = barWrapper.querySelector(".progress-bar");
-        const newWidth = percentile + "%";
-        requestAnimationFrame(() => {
-        bar.style.transition = "width 1s ease-in-out";
-        bar.style.width = newWidth;
-        });
-    }
+            const bar = barWrapper.querySelector(".progress-bar");
+            const newWidth = percentile + "%";
+            requestAnimationFrame(() => {
+                bar.style.transition = "width 1s ease-in-out";
+                bar.style.width = newWidth;
+            });
+        }
 
-    clusterDetails.appendChild(barsContainer);
+        clusterDetails.appendChild(barsContainer);
 
-    clusterDetails.dataset.clusterId = clusterId;
-    clusterDetails.dataset.means = JSON.stringify(means);
+        clusterDetails.dataset.clusterId = clusterId;
+        clusterDetails.dataset.medians = JSON.stringify(medians);
     }
 
     const savedKey = localStorage.getItem("gemini_api_key");
@@ -169,20 +173,23 @@ function plotData(data) {
         return;
     }
 
-    // Get means for all clusters
-    const clusterMeans = {};
+    // Get median for all clusters 
+    const clusterMedians = {};
     uniqueClusters.forEach(cl => {
         const idxs = clusters.map((c, i) => c === cl ? i : -1).filter(i => i !== -1);
-        const means = {};
+        const medians = {};
         for (const [feature, values] of Object.entries(data.features)) {
-        const subset = idxs.map(i => values[i]);
-        const meanVal = subset.reduce((a, b) => a + b, 0) / subset.length;
-        means[feature] = meanVal;
+            const subset = idxs.map(i => values[i]).sort((a, b) => a - b);
+            const middle = Math.floor(subset.length / 2);
+            const medianVal = subset.length % 2 === 0
+                ? (subset[middle - 1] + subset[middle]) / 2
+                : subset[middle];
+            medians[feature] = medianVal;
         }
-        clusterMeans[`Cluster ${cl}`] = means;
+        clusterMedians[`Cluster ${cl}`] = medians;
     });
 
-    const prompt = `In short summary, analyse these clusters based on their mean values:\n\n${JSON.stringify(clusterMeans, null, 2)}`;
+    const prompt = `In short summary, analyse these clusters based on their median values:\n\n${JSON.stringify(clusterMeans, null, 2)}`;
     
     clusterAnalysis.style.display = "block";
     clusterAnalysis.textContent = "Analysing with Gemini...";
