@@ -189,7 +189,7 @@ function plotData(data) {
         clusterMedians[`Cluster ${cl}`] = medians;
     });
 
-    const prompt = `In short summary, analyse these clusters based on their median values:\n\n${JSON.stringify(clusterMeans, null, 2)}`;
+    const prompt = `In short summary, analyse these clusters based on their median values:\n\n${JSON.stringify(clusterMedians, null, 2)}`;
     
     clusterAnalysis.style.display = "block";
     clusterAnalysis.textContent = "Analysing with Gemini...";
